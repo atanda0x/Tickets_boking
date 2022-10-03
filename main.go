@@ -1,48 +1,60 @@
 package main
 
 import (
+	"booking/helper"
 	"fmt"
-	"strings"
+	"sync"
+	"time"
 )
 
 var availableTickets = 50000
 var conferenceName = "Go Conference"
 
-const conferenceTickets = 50000
+const conferenceTickets = 5000
 
-var booking = []string{}
+var booking = make([]UserData, 0)
+
+type UserData struct {
+	firstName       string
+	lastName        string
+	email           string
+	numberOfTickets int
+}
+
+var wg = sync.WaitGroup{}
 
 func main() {
 
 	greeter()
 
-	for {
+	firstName, lastName, email, userTickets := getUserDetails()
 
-		firstName, lastName, email, userTickets := getUserDetails()
+	isValidName, isValidEmail, isValidTicketNumber := helper.ValidateUser(firstName, lastName, email, userTickets, availableTickets)
 
-		isValidName, isValidEmail, isValidTicketNumber := validateUser(firstName, lastName, email, userTickets)
+	if isValidName && isValidEmail && isValidTicketNumber {
 
-		if isValidName && isValidEmail && isValidTicketNumber {
+		bookingTickets(userTickets, firstName, lastName, email)
 
-			bookingTickets(userTickets, firstName, lastName, email)
+		wg.Add(1)
+		go sendTickets(userTickets, firstName, lastName, email)
 
-			firstNames := getFirstName()
-			fmt.Printf("The first name of the bookings are: %v\n", firstNames)
+		firstNames := getFirstName()
+		fmt.Printf("The first name of the bookings are: %v\n", firstNames)
 
-			if availableTickets == 0 {
-				fmt.Println("Our conference booking is booked, come back next year")
-				break
-			}
-		} else {
-			if !isValidName {
-				fmt.Println("First or last name you entered is short")
-			} else if !isValidEmail {
-				fmt.Println("Email doesn't have @ ")
-			} else if !isValidTicketNumber {
-				fmt.Println("Number of ticket is invalid")
-			}
+		if availableTickets == 0 {
+			fmt.Println("Our conference booking is booked, come back next year")
+			// break
+		}
+	} else {
+		if !isValidName {
+			fmt.Println("First or last name you entered is short")
+		} else if !isValidEmail {
+			fmt.Println("Email doesn't have @ ")
+		} else if !isValidTicketNumber {
+			fmt.Println("Number of ticket is invalid")
 		}
 	}
+	wg.Wait()
 
 }
 
@@ -53,17 +65,9 @@ func greeter() {
 func getFirstName() []string {
 	firstNames := []string{}
 	for _, bookings := range booking {
-		name := strings.Fields(bookings)
-		firstNames = append(firstNames, name[0])
+		firstNames = append(firstNames, bookings.firstName)
 	}
 	return firstNames
-}
-
-func validateUser(firstName string, lastName string, email string, userTickets int) (bool, bool, bool) {
-	isValidName := len(firstName) >= 3 && len(lastName) >= 3
-	isValidEmail := strings.Contains(email, "@")
-	isValidTicketNumber := userTickets > 0 && userTickets <= availableTickets
-	return isValidName, isValidEmail, isValidTicketNumber
 }
 
 func getUserDetails() (string, string, string, int) {
@@ -88,8 +92,25 @@ func getUserDetails() (string, string, string, int) {
 
 func bookingTickets(userTickets int, firstName string, lastName string, email string) {
 	remainingTickets := availableTickets - userTickets
-	booking = append(booking, firstName+" "+lastName)
+
+	var userData = UserData{
+		firstName:       firstName,
+		lastName:        lastName,
+		email:           email,
+		numberOfTickets: userTickets,
+	}
+	booking = append(booking, userData)
+	fmt.Printf("List of bookigs is %v\n", booking)
 
 	fmt.Printf("Thank you %v %v for booking %v tickets, you will receive a confirmation email at %v\n", firstName, lastName, userTickets, email)
 	fmt.Printf("%v tickets remaininf for %v\n", remainingTickets, conferenceName)
+}
+
+func sendTickets(userTickets int, firstName string, lastName string, email string) {
+	time.Sleep(15 * time.Second)
+	var tickets = fmt.Sprintf("%v tickets for %v %v", userTickets, firstName, lastName)
+	fmt.Println("####################################################################################################")
+	fmt.Printf("Sending ticket:\n %v \nto email address %v\n", tickets, email)
+	fmt.Println("####################################################################################################")
+	wg.Done()
 }
